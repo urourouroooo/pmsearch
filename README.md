@@ -27,7 +27,7 @@ Batch **PubMed** search over a **publication-date (PDAT)** window, export to **E
 ## Installation
 
 ```bash
-git clone https://github.com/<your-org>/pmsearch.git
+git clone  https://github.com/urourouroooo/pmsearch.git
 cd pmsearch
 pip install -e .
 ```
