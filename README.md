@@ -1,6 +1,6 @@
 # pmsearch 0.1.0
 
-Batch **PubMed** search over a **publication-date (PDAT)** window, export to **Excel** easy to read, optional  abstract translation**, and optional **keyword co-occurrence (`kwcorre`)** analysis export to CSV.
+Batch **PubMed** search over a **publication-date (PDAT)** window, export to **Excel** easy to read, optional  abstract translation, and optional **keyword co-occurrence (`kwcorre`)** analysis export to CSV.
 
 ---
 
