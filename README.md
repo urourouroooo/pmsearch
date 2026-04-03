@@ -59,7 +59,7 @@ python -m pmsearch --help
 ### STEP 1: Load your email address
 
 **[👉🏻 Necessary]** According to NCBI policy, users of the API are required to provide a valid contact email address. Open `data/keywords.json`. Replace `your_email@xxxx.com` with your real email address. 
-Without doing this, running pmsearch will throw error.
+Without doing this, running pmsearch may throw error.
 
 ```markdown
 {
@@ -69,7 +69,7 @@ Without doing this, running pmsearch will throw error.
 }
 ```
 
-### STEP2: Set your searching keywords
+### STEP2: Set searching keywords
 
  `pmsearch` recognize md files within data/keywords. 
 The Markdown file name must follow the format `kw_N.md` or `kw_N_xxxx.md`, where `N` is a number used to select keywords at runtime, and `xxxx` is optional and serves as a user-defined label for easier identification.
@@ -86,13 +86,22 @@ join: AND
 humans[MeSH Terms] OR mice[MeSH Terms]
 ```
 
-### STEP3 : Set your output directory
+### STEP3 : Set output directory & translation language
 
 By default, pmsearch outputs Excel and CSV files to `data/runs`. However, users can customize the output directory by modifying the `data/keywords/runs_root.md` file.  For example, if you want to set the output directory to a folder called pmsearch_run on desktop, you can simply write:
 
 ```
 runs_root: ~/Desktop/pmsearch_run
 ```
+
+`pmsearch` can translate the abstract via Google API. Currently, Chinses and Japanese are supported, while the default setting is Chinese.
+Users can customize the default language settings into Japanese, for example, by modifying data/translate_lang.md by simply write:
+
+```
+jap
+```
+
+More language translation option will be available in future updates.
 
 ### STEP4: RUN
 
