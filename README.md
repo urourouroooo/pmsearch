@@ -101,7 +101,7 @@ Users can customize the default language settings into Japanese, for example, by
 jap
 ```
 
-More language translation option will be available in future updates.
+More language translation options will be available in future updates.
 
 ### STEP4: RUN
 
