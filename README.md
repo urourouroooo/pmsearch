@@ -54,7 +54,7 @@ Without installing (from the repo root):
 python -m pmsearch --help
 ```
 
-## Usage
+## Quick Set-up
 
 ### STEP 1: Load your email address
 
