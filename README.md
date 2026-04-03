@@ -29,7 +29,10 @@ Batch **PubMed** search over a **publication-date (PDAT)** window, export to **E
 ```bash
 git clone  https://github.com/urourouroooo/pmsearch.git
 # Highly recommend the user to move the cloned pmsearch file to another location where they can easily modify the keywords files!!!
-cd pmsearch
+# Personally I prefer the Desktop
+```
+```
+cd pmsearch      # conduct these after you remove the file
 pip install -e .
 ```
 
