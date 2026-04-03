@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pmsearch"
+version = "0.1.0"
+description = "PubMed batch search (date window) and Excel export with optional Chinese abstract translation."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "biopython>=1.83",
+    "pandas>=2.0",
+    "openpyxl>=3.1",
+    "deep-translator>=1.11",
+    "requests>=2.31",
+    "certifi>=2024.0.0",
+    "pycountry>=22.3.0",
+    "tqdm>=4.66.0",
+]
+
+[project.scripts]
+pmsearch = "pmsearch.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pmsearch*"]
