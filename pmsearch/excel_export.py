@@ -10,6 +10,36 @@ from openpyxl.utils import get_column_letter
 
 from .config import DATA_DIR, KeywordQuerySpec
 
+
+def abstract_translation_column_name(lang: str) -> str | None:
+    """Excel header for translated abstract: ``zh`` / ``jap`` / ``no``."""
+    if lang == "no":
+        return None
+    if lang == "jap":
+        return "Abstract (Japanese)"
+    return "Abstract (Chinese)"
+
+
+def preferred_dataframe_columns(abstract_translation_column: str | None) -> list[str]:
+    base = [
+        "Article No.",
+        "PMID",
+        "PubMed URL",
+        "Title",
+        "Publication Date",
+        "Journal",
+        "ISSN",
+        "Corresponding Author",
+        "Corresponding Author Affiliation",
+        "Institution Country",
+        "Keywords",
+        "Abstract",
+    ]
+    if abstract_translation_column:
+        base.append(abstract_translation_column)
+    return base
+
+
 # Excel column width (approx. character units). Unknown headers get _DEFAULT_COL_WIDTH.
 _DEFAULT_COL_WIDTH = 20.0
 _COLUMN_WIDTHS: dict[str, float] = {
@@ -26,6 +56,7 @@ _COLUMN_WIDTHS: dict[str, float] = {
     "Keywords": 40.0,
     "Abstract": 88.0,
     "Abstract (Chinese)": 52.0,
+    "Abstract (Japanese)": 52.0,
 }
 
 # Wrap + top-align for cells that often hold long text (short ID columns stay single-line)
@@ -39,6 +70,7 @@ _WRAP_COLUMNS: frozenset[str] = frozenset(
         "Keywords",
         "Abstract",
         "Abstract (Chinese)",
+        "Abstract (Japanese)",
     }
 )
 
@@ -104,11 +136,14 @@ def build_run_summary_lines(
     kw_num: int | None,
     use_keywords_json: bool,
     kw_md_basename: str | None = None,
+    translate_lang: str | None = None,
 ) -> tuple[str, str]:
     """First two rows in Excel: PDAT range + keyword source and PubMed term (English)."""
     line1 = (
         f"PDAT search range: {mindate} — {maxdate} ({days} calendar days, inclusive)"
     )
+    if translate_lang:
+        line1 += f"  |  Abstract translation: {translate_lang} (no/zh/jap)"
     if use_keywords_json:
         src = "Keyword source: data/keywords.json (pubmed_query or keywords array)"
     elif kw_md_basename:
@@ -131,6 +166,7 @@ def export_rows(
     output_path: Path | None = None,
     *,
     run_summary: tuple[str, str] | None = None,
+    abstract_translation_column: str | None = "Abstract (Chinese)",
 ) -> Path:
     if output_path is None:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -142,21 +178,7 @@ def export_rows(
         output_path = Path(output_path).expanduser().resolve()
         output_path.parent.mkdir(parents=True, exist_ok=True)
     df = pd.DataFrame(rows)
-    preferred = [
-        "Article No.",
-        "PMID",
-        "PubMed URL",
-        "Title",
-        "Publication Date",
-        "Journal",
-        "ISSN",
-        "Corresponding Author",
-        "Corresponding Author Affiliation",
-        "Institution Country",
-        "Keywords",
-        "Abstract",
-        "Abstract (Chinese)",
-    ]
+    preferred = preferred_dataframe_columns(abstract_translation_column)
     cols = [c for c in preferred if c in df.columns]
     rest = [c for c in df.columns if c not in cols]
     df = df[cols + rest]

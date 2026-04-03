@@ -56,6 +56,7 @@ from .config import (
     DATA_DIR,
     KEYWORD_SETS_DIR,
     RUNS_ROOT_MD_PATH,
+    TRANSLATE_LANG_MD_PATH,
     discover_kw_set_numbers,
     get_keyword_list,
     load_keyword_query_from_config,
@@ -66,9 +67,14 @@ from .config import (
     resolve_ncbi_api_key,
     resolve_runs_base,
     resolve_tool_name,
+    resolve_translate_lang,
     save_keywords_config,
 )
-from .excel_export import build_run_summary_lines, export_rows
+from .excel_export import (
+    abstract_translation_column_name,
+    build_run_summary_lines,
+    export_rows,
+)
 from .pubmed_client import (
     build_search_term,
     date_window_today,
@@ -77,7 +83,7 @@ from .pubmed_client import (
     parse_pdat_range,
     search_pmids,
 )
-from .translate_zh import translate_to_chinese
+from .translate_zh import translate_abstract
 
 # argparse ``-kw`` with no value: run every ``data/keywords/kw_*.md``
 KW_ALL_SETS = "all"
@@ -125,8 +131,8 @@ def _segmented_bar_str(n_done: int, total: int, nseg: int = 10) -> str:
     filled = (n_done * nseg) // total
     if n_done >= total:
         filled = nseg
-    parts = ["█" if i < filled else "░" for i in range(nseg)]
-    return " ".join(parts)
+    # Compact (no spaces) so tqdm stays on one line on narrow terminals.
+    return "".join("█" if i < filled else "░" for i in range(nseg))
 
 
 class _SegmentedTranslateTqdm(_TranslateTqdm):
@@ -317,6 +323,7 @@ def _write_run_record_md(
     prep: dict[str, Any],
     term: str,
     export_paths: list[tuple[str, str]],
+    translate_lang: str | None = None,
 ) -> None:
     """Write ``run_record.md`` in the run folder (paths + query + PDAT)."""
     mindate = prep["mindate"]
@@ -336,15 +343,26 @@ def _write_run_record_md(
         f"- **PDAT window**: `{mindate}` — `{maxdate}` ({days} calendar day(s) inclusive; "
         f"{'fixed `--range`' if prep.get('pdat_fixed_range') else 'sliding `--days` ending today'})",
         "",
-        "## PubMed query",
-        "",
-        "```",
-        q_safe,
-        "```",
-        "",
-        "## Output files",
-        "",
     ]
+    if translate_lang is not None:
+        lines.append(
+            f"- **Abstract translation**: `{translate_lang}` "
+            f"(override: `--no-translate`, `--translate-lang`, env `PMSEARCH_TRANSLATE_LANG`, "
+            f"or `{TRANSLATE_LANG_MD_PATH}`; default `zh`)"
+        )
+        lines.append("")
+    lines.extend(
+        [
+            "## PubMed query",
+            "",
+            "```",
+            q_safe,
+            "```",
+            "",
+            "## Output files",
+            "",
+        ]
+    )
     for label, p in export_paths:
         lines.append(f"- **{label}**: `{p}`")
     lines.append("")
@@ -674,28 +692,38 @@ def _cmd_run_once(
                 f"{n_unique} unique PMID(s) after deduplication."
             )
 
-    if args.no_translate:
-        for r in unique_ordered:
-            r["Abstract (Chinese)"] = ""
-    else:
+    tl = resolve_translate_lang(
+        no_translate=args.no_translate,
+        cli_lang=getattr(args, "translate_lang", None),
+    )
+    tl_col = abstract_translation_column_name(tl)
+    if getattr(args, "verbose", False) and not getattr(args, "quiet", False):
+        print(
+            f"Abstract translation mode: {tl}  →  Excel column: "
+            f"{tl_col or '(none)'}",
+            flush=True,
+        )
+
+    if tl != "no":
         n_art = len(unique_ordered)
-        if n_art > 0:
-            # No default ``{bar}``: show 10 discrete blocks with gaps via ``postfix``.
+        if n_art > 0 and tl_col is not None:
             bar_fmt = (
                 "{desc}: {percentage:3.0f}% |{postfix}| {n_fmt}/{total_fmt} "
                 "[{elapsed}<{remaining}]"
             )
+            desc = "ZH abstract" if tl == "zh" else "JA abstract"
             with _SegmentedTranslateTqdm(
                 total=n_art,
-                desc="Translating abstracts",
+                desc=desc,
                 unit="article",
                 disable=args.quiet,
                 bar_format=bar_fmt,
                 miniters=1,
+                dynamic_ncols=True,
             ) as pbar:
                 for r in unique_ordered:
                     ab = r.get("Abstract") or ""
-                    r["Abstract (Chinese)"] = translate_to_chinese(ab)
+                    r[tl_col] = translate_abstract(ab, tl)
                     pbar.update(1)
             if not args.quiet:
                 print(flush=True)
@@ -724,8 +752,14 @@ def _cmd_run_once(
         kw_num=kw_arg,
         use_keywords_json=use_json,
         kw_md_basename=kw_md_basename,
+        translate_lang=tl,
     )
-    out = export_rows(unique_ordered, out_path, run_summary=summary)
+    out = export_rows(
+        unique_ordered,
+        out_path,
+        run_summary=summary,
+        abstract_translation_column=tl_col,
+    )
     if not args.quiet:
         _run_out(f"Saved: {out}")
 
@@ -766,6 +800,7 @@ def _cmd_run_once(
         prep=prep,
         term=term,
         export_paths=export_paths,
+        translate_lang=tl,
     )
 
     if not args.quiet:
@@ -887,7 +922,17 @@ def main() -> int:
     p_run.add_argument(
         "--no-translate",
         action="store_true",
-        help="Skip abstract translation (English only)",
+        help="Skip abstract translation; overrides --translate-lang and translate_lang.md",
+    )
+    p_run.add_argument(
+        "--translate-lang",
+        choices=("no", "zh", "jap"),
+        default=None,
+        metavar="LANG",
+        help=(
+            "Abstract translation: no | zh (Chinese) | jap (Japanese). "
+            "Overrides data/translate_lang.md; default from file or zh"
+        ),
     )
     p_run.add_argument(
         "--runs-dir",

@@ -40,6 +40,9 @@ KEYWORD_SETS_DIR = DATA_DIR / "keywords"
 # Optional: ``data/runs_root.md`` — set where timestamped run folders are created (see ``parse_runs_root_md``).
 RUNS_ROOT_MD_PATH = DATA_DIR / "runs_root.md"
 
+# Optional: ``data/translate_lang.md`` — abstract translation: ``no`` | ``zh`` | ``jap`` (default ``zh``).
+TRANSLATE_LANG_MD_PATH = DATA_DIR / "translate_lang.md"
+
 _RUNS_MD_KV = re.compile(
     r"^(?:runs[_\s-]?root|output\s*dir|output|path)\s*[:=]\s*(.+?)\s*$",
     re.IGNORECASE,
@@ -137,6 +140,73 @@ def _first_nonempty_env(*names: str) -> str:
         if v:
             return v
     return ""
+
+
+_TRANSLATE_MD_KV = re.compile(
+    r"^(?:translate[_\s-]?lang|translation|lang)\s*[:=]\s*(no|zh|jap)\s*$",
+    re.IGNORECASE,
+)
+
+
+def parse_translate_lang_md(file_path: Path) -> str | None:
+    """
+    Read ``translate_lang.md`` under ``DATA_DIR``.
+
+    * A line like ``translate_lang: zh`` (also ``lang:``, ``translation:``).
+    * Or a **bare** line ``no``, ``zh``, or ``jap`` (first match wins). ``#`` lines skipped.
+    """
+    try:
+        text = file_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    for line in text.splitlines():
+        s = line.strip()
+        if not s or s.startswith("#"):
+            continue
+        m = _TRANSLATE_MD_KV.match(s)
+        if m:
+            return m.group(1).lower()
+        low = s.lower()
+        if low in ("no", "zh", "jap"):
+            return low
+    return None
+
+
+def normalize_translate_lang(value: str | None) -> str | None:
+    """Return ``no`` | ``zh`` | ``jap`` or ``None`` if invalid."""
+    if value is None:
+        return None
+    t = str(value).strip().lower()
+    if t in ("no", "zh", "jap"):
+        return t
+    return None
+
+
+def resolve_translate_lang(
+    *,
+    no_translate: bool,
+    cli_lang: str | None,
+) -> str:
+    """
+    Abstract translation language for Excel.
+
+    Precedence: ``--no-translate`` → ``--translate-lang`` → ``PMSEARCH_TRANSLATE_LANG`` →
+    ``data/translate_lang.md`` → default ``zh``.
+    """
+    if no_translate:
+        return "no"
+    cli = normalize_translate_lang(cli_lang)
+    if cli is not None:
+        return cli
+    env = _first_nonempty_env("PMSEARCH_TRANSLATE_LANG")
+    env_n = normalize_translate_lang(env)
+    if env_n is not None:
+        return env_n
+    if TRANSLATE_LANG_MD_PATH.is_file():
+        from_md = parse_translate_lang_md(TRANSLATE_LANG_MD_PATH)
+        if from_md is not None:
+            return from_md
+    return "zh"
 
 
 def resolve_entrez_email(cfg: dict) -> str:
