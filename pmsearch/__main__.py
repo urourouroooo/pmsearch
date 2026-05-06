@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import copy
+import re
 import sys
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, TextIO
 
 import pandas as pd
 
@@ -98,6 +100,7 @@ def _kw_section_label(n: int) -> str:
 
 RUN_BANNER_START = "================ START RETRIEVING ================"
 RUN_BANNER_END = "================  WORK COMPLETE  ================"
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 # Retrieve status line: [RETRIEVING] (yellow) → [COMPLETE] (rose-red, hue nudged toward red).
 _T_RESET = "\033[0m"
@@ -118,6 +121,67 @@ def _run_out(msg: str, *, flush: bool = False) -> None:
     """Print one logical line, then a blank line (readable run output when not ``--quiet``)."""
     print(msg, flush=flush)
     print(flush=flush)
+
+
+class _TeeStream:
+    """Mirror writes to original stream and a UTF-8 log file."""
+
+    def __init__(
+        self,
+        original: TextIO,
+        log_file: TextIO,
+        *,
+        strip_ansi_for_log: bool = False,
+    ) -> None:
+        self._original = original
+        self._log_file = log_file
+        self._strip_ansi_for_log = strip_ansi_for_log
+
+    def write(self, s: str) -> int:
+        self._original.write(s)
+        to_log = s.replace("\r", "\n")
+        if self._strip_ansi_for_log:
+            to_log = _ANSI_ESCAPE_RE.sub("", to_log)
+        self._log_file.write(to_log)
+        return len(s)
+
+    def flush(self) -> None:
+        self._original.flush()
+        self._log_file.flush()
+
+    def isatty(self) -> bool:
+        return bool(getattr(self._original, "isatty", lambda: False)())
+
+
+def _run_with_auto_log(command_name: str, fn: Callable[[], int]) -> int:
+    """
+    Execute one CLI command while tee-ing stdout/stderr to ``data/logs/*.log``.
+    If logging setup fails, runs command normally.
+    """
+    logs_dir = (DATA_DIR / "logs").resolve()
+    try:
+        logs_dir.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return fn()
+
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_cmd = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(command_name or "command"))
+    log_path = (logs_dir / f"{ts}_{safe_cmd}.log").resolve()
+
+    try:
+        with log_path.open("w", encoding="utf-8") as lf:
+            lf.write("# pmsearch command log\n\n")
+            lf.write(f"- Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            lf.write(f"- Command: {' '.join(sys.argv)}\n")
+            lf.write(f"- Working dir: {Path.cwd().resolve()}\n\n")
+            out_tee = _TeeStream(sys.stdout, lf, strip_ansi_for_log=False)
+            err_tee = _TeeStream(sys.stderr, lf, strip_ansi_for_log=True)
+            with contextlib.redirect_stdout(out_tee), contextlib.redirect_stderr(err_tee):
+                rc = fn()
+                print(f"\nLog file: {log_path}")
+                return rc
+    except OSError:
+        return fn()
 
 
 def _segmented_bar_str(n_done: int, total: int, nseg: int = 10) -> str:
@@ -1109,12 +1173,16 @@ def main() -> int:
     kw_sub.add_parser("clear", help="Clear all keywords")
 
     args = parser.parse_args()
-    if args.command == "keywords":
-        return cmd_keywords(args)
-    err = _normalize_parsed_kw(args)
-    if err:
-        return err
-    return args.func(args)
+
+    def _dispatch() -> int:
+        if args.command == "keywords":
+            return cmd_keywords(args)
+        err = _normalize_parsed_kw(args)
+        if err:
+            return err
+        return args.func(args)
+
+    return _run_with_auto_log(args.command, _dispatch)
 
 
 if __name__ == "__main__":

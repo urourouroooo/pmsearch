@@ -1,6 +1,6 @@
 # pmsearch 0.1.0
 
-Batch **PubMed** search over a **publication-date (PDAT)** window, export to **Excel** easy to read, optional  abstract translation, and optional **keyword co-occurrence (`kwcorre`)** analysis export to CSV.
+Batch **PubMed** search over a **publication-date (PDAT)** window, export to **Excel** easy to read, optional  abstract translation**, and optional **keyword co-occurrence (`kwcorre`)** analysis export to CSV.
 
 ---
 
@@ -27,20 +27,22 @@ Batch **PubMed** search over a **publication-date (PDAT)** window, export to **E
 
 ```bash
 # Clone the repository to a location where you can easily modify the keyword files!
-# cd ~/Desktop	
+# cd ~/Desktop
 git clone https://github.com/urourouroooo/pmsearch.git
 cd pmsearch
 ```
 
-Create a new environment(optional), install the requirements then install the pmsearch in this env.
+Create a new environment (optional), then install:
 
 ```bash
 conda create -n pmsearch python=3.10
 conda activate pmsearch
 
-pip install -r requirements.txt
+pip install --upgrade pip
 pip install -e .
 ```
+
+> **Tip:** `pip install --upgrade pip` is required if your pip version is older than 21.3. Skipping it may cause an editable-install error.
 
 Test run:
 
@@ -54,20 +56,29 @@ Without installing (from the repo root):
 python -m pmsearch --help
 ```
 
-## Quick Set-up
+## Usage
 
-### STEP 1: Load your email address
+### STEP 1: Set your contact email
 
-**[👉🏻 Necessary]** According to NCBI policy, users of the API are required to provide a valid contact email address. Open `data/keywords.json`. Replace `your_email@xxxx.com` with your real email address. 
-Without doing this, running pmsearch may throw error.
+**[👉🏻 Required]** NCBI policy requires a valid contact email for E-utilities access.
 
-```markdown
+Copy the example config and fill in your email:
+
+```bash
+cp data/keywords.json.example data/keywords.json
+```
+
+Then open `data/keywords.json` and replace the placeholder:
+
+```json
 {
   "keywords": [],
-  "entrez_email": "your_email@xxxx.com",	
+  "entrez_email": "your_email@example.com",
   "ncbi_api_key": ""
 }
 ```
+
+Without this step, pmsearch will exit with an error asking for an email.
 
 ### STEP2: Set searching keywords
 
@@ -101,7 +112,7 @@ Users can customize the default language settings into Japanese, for example, by
 jap
 ```
 
-More language translation options will be available in future updates.
+More language translation option will be available in future updates.
 
 ### STEP4: RUN
 
@@ -123,14 +134,14 @@ pmsearch try -kw 1
 
 The app resolves **`DATA_DIR`** (see below). Typical layout:
 
-| Path                     | Purpose                                                      |
-| ------------------------ | ------------------------------------------------------------ |
-| `keywords.json`          | Contact email, optional API key, and/or `keywords` list or `pubmed_query` |
-| `keywords/kw_1.md`       | Keyword set **1** (one PubMed clause per line; `join:` / `mode: freeform` supported) |
-| `keywords/kw_2.md`       | Set **2**, …                                                 |
+| Path | Purpose |
+|------|---------|
+| `keywords.json` | Contact email, optional API key, and/or `keywords` list or `pubmed_query` |
+| `keywords/kw_1.md` | Keyword set **1** (one PubMed clause per line; `join:` / `mode: freeform` supported) |
+| `keywords/kw_2.md` | Set **2**, … |
 | `keywords/kw_3_notes.md` | Same index **3** as `kw_3.md`; if **`kw_3.md` exists**, it takes precedence |
-| `runs_root.md`           | Optional: set the parent directory for timestamped run folders (e.g. `runs_root: ~/Desktop/pmsearch_run`) |
-| `runs/`                  | Default parent for run folders (overridable; see below)      |
+| `runs_root.md` | Optional: set the parent directory for timestamped run folders (e.g. `runs_root: ~/Desktop/pmsearch_run`) |
+| `runs/` | Default parent for run folders (overridable; see below) |
 
 ### How `DATA_DIR` is chosen
 
@@ -150,28 +161,28 @@ Each run creates a subdirectory such as `20260403_153045_day7_kw_3/` with `pubme
 
 ## Commands
 
-| Command             | Description                                                  |
-| ------------------- | ------------------------------------------------------------ |
-| `pmsearch run`      | Search, fetch, translate (optional), write Excel (+ optional kwcorre) |
-| `pmsearch try`      | ESearch only — print hit count                               |
-| `pmsearch kwcorre`  | Fetch metadata and write kwcorre-style CSV                   |
+| Command | Description |
+|---------|-------------|
+| `pmsearch run` | Search, fetch, translate (optional), write Excel (+ optional kwcorre) |
+| `pmsearch try` | ESearch only — print hit count |
+| `pmsearch kwcorre` | Fetch metadata and write kwcorre-style CSV |
 | `pmsearch keywords` | Manage the simple `keywords` list in `keywords.json` (separate from `kw_*.md`) |
 
 ### `pmsearch run` (common options)
 
-| Option                | Description                                                  |
-| --------------------- | ------------------------------------------------------------ |
-| `-kw N`               | Use `data/keywords/kw_N.md` or the **only** `kw_N_*.md` for that `N` |
-| `-kw`                 | No number: run every keyword set index found under `keywords/` |
-| `--use-keywords-json` | Load query from `keywords.json` (do not combine with `-kw`)  |
-| `--days N`            | Sliding window: **N** calendar days ending **today** (default **15**). Ignored if `--range` is set. |
-| `--range START:END`   | Fixed PDAT interval: `START:END` or `START..END`; dates `YYYY-MM-DD`, `YYYY/MM/DD`, or `YYYY.MM.DD`. Overrides `--days`. |
-| `--no-translate`      | Skip abstract translation                                    |
-| `--max-articles M`    | Cap fetched articles (first *M* PMIDs in search order)       |
-| `--kwcorre`           | Also write `kwcorre.csv` in the run folder                   |
-| `--runs-dir DIR`      | Parent directory for this run’s timestamp folder             |
-| `-o name.xlsx`        | Excel basename inside the run folder (default `pubmed.xlsx`) |
-| `-q` / `-v`           | Quiet / verbose                                              |
+| Option | Description |
+|--------|-------------|
+| `-kw N` | Use `data/keywords/kw_N.md` or the **only** `kw_N_*.md` for that `N` |
+| `-kw` | No number: run every keyword set index found under `keywords/` |
+| `--use-keywords-json` | Load query from `keywords.json` (do not combine with `-kw`) |
+| `--days N` | Sliding window: **N** calendar days ending **today** (default **15**). Ignored if `--range` is set. |
+| `--range START:END` | Fixed PDAT interval: `START:END` or `START..END`; dates `YYYY-MM-DD`, `YYYY/MM/DD`, or `YYYY.MM.DD`. Overrides `--days`. |
+| `--no-translate` | Skip abstract translation |
+| `--max-articles M` | Cap fetched articles (first *M* PMIDs in search order) |
+| `--kwcorre` | Also write `kwcorre.csv` in the run folder |
+| `--runs-dir DIR` | Parent directory for this run’s timestamp folder |
+| `-o name.xlsx` | Excel basename inside the run folder (default `pubmed.xlsx`) |
+| `-q` / `-v` | Quiet / verbose |
 
 The same **`--days`** / **`--range`** behavior applies to **`try`** and **`kwcorre`**.
 
